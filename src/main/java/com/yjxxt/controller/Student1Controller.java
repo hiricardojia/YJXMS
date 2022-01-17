@@ -31,8 +31,8 @@ public class Student1Controller extends BaseController {
     @RequestMapping("list")
     @ResponseBody
     public Map<String ,Object> list(StudentQuery studentQuery){
-
-        return studentService.findStudentByParams(studentQuery);
+//        return studentService.findStudentByParams(studentQuery);
+        return studentService.findStudentByParamsWithRedis(studentQuery);
     }
 
     //学生管理模块的前端显示

@@ -12,6 +12,8 @@ import com.yjxxt.utils.Md5Util;
 import com.yjxxt.utils.PhoneUtil;
 import com.yjxxt.utils.UserIDBase64;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,6 +97,56 @@ public class StudentService extends BaseService<Student, Integer> {
         map.put("msg","success");
         map.put("count",plist.getTotal());
         map.put("data",plist.getList());
+
+        return map;
+    }
+
+    @Resource(name = "redisTemplate")
+    ValueOperations<String, Object> valueOperations;
+
+    @Resource
+    RedisTemplate<String, Object> redisTemplate;
+
+    //学生模块的列表查询,使用redis作为缓存进行查询
+    public Map<String,Object> findStudentByParamsWithRedis(StudentQuery studentQuery){
+
+        StringBuilder sb = new StringBuilder("student:list:page:" + studentQuery.getPage() + ":limit:" + studentQuery.getLimit());
+        if (StringUtils.isNotBlank(studentQuery.getcId())) {
+            sb.append(":cId:").append(studentQuery.getcId());
+        }
+        if (StringUtils.isNotBlank(studentQuery.getStudentName())) {
+            sb.append(":studentName:").append(studentQuery.getStudentName());
+        }
+        if (StringUtils.isNotBlank(studentQuery.getIsValid())) {
+            sb.append(":isValid:").append(studentQuery.getIsValid());
+        }
+
+        //判断缓存中是否存在
+        String key = sb.toString();
+        PageInfo<Student> result=null;
+        if (redisTemplate.hasKey(key)) {
+            //存在缓存
+            result = (PageInfo<Student>) valueOperations.get(key);
+        } else {
+            //初始化分页单位
+            PageHelper.startPage(studentQuery.getPage(),studentQuery.getLimit());
+            //开始分页
+            result = new PageInfo<>(selectByParams(studentQuery));
+            System.out.println("test");
+            //如果数据存在，将数据存入缓存
+            if (result.getTotal() > 0) {
+                valueOperations.set(key,result);
+            }
+        }
+
+        //实例化Map
+        Map<String,Object> map = new HashMap<>();
+
+        //准备数据
+        map.put("code",0);
+        map.put("msg","success");
+        map.put("count",result.getTotal());
+        map.put("data",result.getList());
 
         return map;
     }
